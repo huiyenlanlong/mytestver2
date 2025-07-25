@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDONOTHINGALLDAYS</title>
+    <style>
+        body {font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: linear-gradient(120deg, #2c3e50, #3498db); color: #fff;}
+        header {background: rgba(0,0,0,0.6); padding: 15px 20px; display: flex; justify-content: center; align-items: center; flex-direction: column; box-shadow: 0 2px 4px rgba(0,0,0,0.3); text-align: center;}
+        header h1 {font-size: 8vw; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.7); margin: 0; color: #f1c40f;}
+        header h2 {font-size: 4vw; margin: 5px 0 0 0; color: #f1f1f1; font-weight: normal;}
+        #userControls {margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px; width: 100%; max-width: 400px;}
+        #userControls input, #userControls button {flex: 1 1 45%; padding: 10px; font-size: 16px; border: none; border-radius: 4px;}
+        button {background: #f1c40f; color: #000; font-weight: bold; cursor: pointer;}
+        button:hover {background: #d4ac0d;}
+        main {display: flex; flex-direction: column; padding: 10px; gap: 20px;}
+        .sidebar {width: 100%; background: rgba(255, 255, 255, 0.1); padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); height: fit-content;}
+        .content {flex: 1;}
+        .video-grid {display: grid; grid-template-columns: repeat(auto-fill,minmax(250px,1fr)); gap: 20px;}
+        .video-block {background: rgba(255,255,255,0.15); border-radius: 8px; padding: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); transition: transform 0.3s; text-align: center; position: relative;}
+        .video-block:hover {transform: scale(1.05);}
+        .video-title {font-size: 16px; font-weight: bold; margin-top: 10px; color: #f1f1f1;}
+        .video-container {position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px;}
+        .video-container iframe {position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;}
+        .iframe-overlay {position: absolute; top: 0; right: 0; width: 60px; height: 40px; z-index: 2;}
+        #adminPanel {display: none;}
+        @media(min-width:768px){ main {flex-direction: row;} .sidebar {width: 250px;} }
+    </style>
+</head>
+<body>
+<header>
+    <h1>IDONOTHINGALLDAYS</h1>
+    <h2>by PotatoPork</h2>
+    <div id="userControls">
+        <input type="password" id="password" placeholder="Enter One-Time Password">
+        <button onclick="checkPassword()">Login</button>
+        <button onclick="logout()">Logout</button>
+        <button onclick="adminLogin()">Admin Login</button>
+    </div>
+</header>
+<main>
+    <aside class="sidebar" id="adminPanel">
+        <h2>Admin Panel</h2>
+        <h3>Passwords</h3>
+        <input type="text" id="newPassword" placeholder="New one-time password">
+        <input type="number" id="expiryMinutes" placeholder="Expiry (minutes)">
+        <button onclick="addPassword()">Add Password</button>
+        <ul id="passwordList"></ul>
+        <h3>Video Titles</h3>
+        <select id="videoSelect"></select>
+        <input type="text" id="videoTitleInput" placeholder="Edit selected video title">
+        <button onclick="updateVideoTitle()">Update Title</button>
+    </aside>
+    <section class="content">
+        <div class="video-grid" id="videoList"></div>
+    </section>
+</main>
+<script>
+    let validPasswords = [];
+    const usedPasswords = new Set();
+    const ADMIN_PASSWORD = "admin@0385";
+    const videos = [
+        { id: "1jbytLPLR7vujtFcICnZjtzgoY-SjbwKl", title: "Kesari Chapter 2" },
+        { id: "1BLms4P3ZU3cDWgHo95flbrk8R2F8QeHf", title: "Stolen" },
+        { id: "1AbcDEfGhijkLmNoPQRstuVWXyZ1234567", title: "New Movie" }
+    ];
+    let isLoggedIn = false;
+    let isAdmin = false;
+
+    function checkPassword(){
+        const input = document.getElementById('password').value.trim();
+        const now = Date.now();
+        const entry = validPasswords.find(p => p.pass === input);
+        if(entry && !usedPasswords.has(input)){
+            if(now < entry.expiry){
+                usedPasswords.add(input);
+                isLoggedIn = true;
+                loadVideos();
+            } else {
+                alert("Password expired!");
+            }
+        } else {
+            alert("Invalid or expired password!");
+        }
+    }
+
+    function logout(){
+        isLoggedIn = false; isAdmin = false;
+        document.getElementById('videoList').innerHTML = "";
+        document.getElementById('adminPanel').style.display = "none";
+    }
+
+    function adminLogin(){
+        const pass = prompt("Enter Admin Password:");
+        if(pass === ADMIN_PASSWORD){
+            isAdmin = true;
+            document.getElementById('adminPanel').style.display = "block";
+            loadPasswordList(); populateVideoSelect();
+        } else {alert("Incorrect admin password!");}
+    }
+
+    function loadVideos(){
+        const container = document.getElementById('videoList');
+        container.innerHTML = "";
+        videos.forEach((video) => {
+            const block = document.createElement('div');
+            block.className = 'video-block';
+            block.innerHTML = `<div class="video-container">
+                                   <iframe src="https://drive.google.com/file/d/${video.id}/preview?rm=minimal" allowfullscreen allow="autoplay"></iframe>
+                                   <div class="iframe-overlay"></div>
+                               </div>
+                               <div class="video-title">${video.title}</div>`;
+            container.appendChild(block);
+        });
+    }
+
+    function addPassword(){
+        const newPass = document.getElementById('newPassword').value.trim();
+        const expiryMinutes = parseInt(document.getElementById('expiryMinutes').value.trim()) || 10;
+        const expiryTime = Date.now() + expiryMinutes * 60 * 1000;
+        if(newPass && !validPasswords.find(p => p.pass === newPass)){
+            validPasswords.push({ pass: newPass, expiry: expiryTime });
+            document.getElementById('newPassword').value = "";
+            document.getElementById('expiryMinutes').value = "";
+            loadPasswordList();
+        }
+    }
+
+    function loadPasswordList(){
+        const list = document.getElementById('passwordList');
+        list.innerHTML = "";
+        validPasswords.forEach(p => {
+            const remaining = Math.max(0, Math.floor((p.expiry - Date.now())/1000));
+            const li = document.createElement('li');
+            li.innerText = `${p.pass} - expires in ${remaining} sec${usedPasswords.has(p.pass) ? " (used)" : ""}`;
+            list.appendChild(li);
+        });
+    }
+
+    function populateVideoSelect(){
+        const select = document.getElementById('videoSelect');
+        select.innerHTML = "";
+        videos.forEach((video, index) => {
+            const option = document.createElement('option');
+            option.value = index; option.textContent = video.title;
+            select.appendChild(option);
+        });
+    }
+
+    function updateVideoTitle(){
+        const index = document.getElementById('videoSelect').value;
+        const newTitle = document.getElementById('videoTitleInput').value.trim();
+        if(newTitle){
+            videos[index].title = newTitle;
+            loadVideos(); populateVideoSelect();
+            document.getElementById('videoTitleInput').value = "";
+        }
+    }
+</script>
+</body>
+</html>
