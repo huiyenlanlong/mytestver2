@@ -4,8 +4,163 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IDONOTHINGALLDAYS</title>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { 
+            getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs 
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // --- Firebase Config (replace with your own values) ---
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const ADMIN_PASSWORD = "admin@0385";
+        const videos = [
+            { id: "1jbytLPLR7vujtFcICnZjtzgoY-SjbwKl", title: "Kesari Chapter 2" },
+            { id: "1BLms4P3ZU3cDWgHo95flbrk8R2F8QeHf", title: "Stolen" }
+        ];
+
+        // Generate or fetch persistent device ID
+        const deviceId = localStorage.getItem("deviceId") || crypto.randomUUID();
+        localStorage.setItem("deviceId", deviceId);
+
+        // --- User Login with Device Lock ---
+        window.checkPassword = async function () {
+            const input = document.getElementById('password').value.trim();
+            if (!input) return alert("Enter password!");
+
+            const docRef = doc(db, "passwords", input);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.deactivated) {
+                    alert("This password is deactivated!");
+                    return;
+                }
+
+                // First-time use
+                if (!data.used) {
+                    await updateDoc(docRef, { 
+                        used: true, 
+                        deviceId: deviceId, 
+                        usedAt: new Date().toISOString() 
+                    });
+                    loadVideos();
+                } 
+                // Same device reuse
+                else if (data.deviceId === deviceId) {
+                    loadVideos();
+                } 
+                // Other device block
+                else {
+                    alert("This password is already used on another device!");
+                }
+            } else {
+                alert("Invalid password!");
+            }
+        };
+
+        window.logout = function () {
+            document.getElementById('videoList').innerHTML = "";
+            document.getElementById('adminPanel').style.display = "none";
+        };
+
+        window.adminLogin = function () {
+            const pass = prompt("Enter Admin Password:");
+            if (pass === ADMIN_PASSWORD) {
+                document.getElementById('adminPanel').style.display = "block";
+                loadPasswordList();
+                populateVideoSelect();
+            } else alert("Incorrect admin password!");
+        };
+
+        window.addPassword = async function () {
+            const pass = document.getElementById('addPassword').value.trim();
+            if (!pass) return alert("Enter password to add!");
+            const docRef = doc(db, "passwords", pass);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) return alert("Password already exists!");
+            await setDoc(docRef, { 
+                used: false, 
+                deactivated: false, 
+                deviceId: null, 
+                usedAt: null 
+            });
+            alert("Password added successfully!");
+            document.getElementById('addPassword').value = "";
+            loadPasswordList();
+        };
+
+        window.deactivatePassword = async function () {
+            const pass = document.getElementById('deletePassword').value.trim();
+            if (!pass) return alert("Enter password to deactivate!");
+            const docRef = doc(db, "passwords", pass);
+            const docSnap = await getDoc(docRef);
+            if (!docSnap.exists()) return alert("Password not found!");
+            await updateDoc(docRef, { deactivated: true });
+            alert("Password deactivated!");
+            document.getElementById('deletePassword').value = "";
+            loadPasswordList();
+        };
+
+        async function loadPasswordList() {
+            const list = document.getElementById('passwordList');
+            list.innerHTML = "";
+            const snapshot = await getDocs(collection(db, "passwords"));
+            snapshot.forEach(docSnap => {
+                const data = docSnap.data();
+                list.innerHTML += `<li>${docSnap.id} ${data.deactivated ? '(deactivated)' : data.used ? `(used on ${data.usedAt}, device: ${data.deviceId})` : ''}</li>`;
+            });
+        }
+
+        window.updateVideoTitle = function () {
+            const index = document.getElementById('videoSelect').value;
+            const newTitle = document.getElementById('videoTitleInput').value.trim();
+            if (newTitle) {
+                videos[index].title = newTitle;
+                loadVideos();
+                populateVideoSelect();
+                document.getElementById('videoTitleInput').value = "";
+            }
+        };
+
+        function populateVideoSelect() {
+            const select = document.getElementById('videoSelect');
+            select.innerHTML = "";
+            videos.forEach((video, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = video.title;
+                select.appendChild(option);
+            });
+        }
+
+        function loadVideos() {
+            const container = document.getElementById('videoList');
+            container.innerHTML = "";
+            videos.forEach(video => {
+                const block = document.createElement('div');
+                block.className = 'video-block';
+                block.innerHTML = `
+                    <div class="video-container">
+                        <iframe src="https://drive.google.com/file/d/${video.id}/preview?rm=minimal" allowfullscreen allow="autoplay"></iframe>
+                        <div class="iframe-overlay"></div>
+                    </div>
+                    <div class="video-title">${video.title}</div>`;
+                container.appendChild(block);
+            });
+        }
+    </script>
     <style>
         body {font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: linear-gradient(120deg, #2c3e50, #3498db); color: #fff;}
         header {background: rgba(0,0,0,0.6); padding: 15px 20px; display: flex; justify-content: center; align-items: center; flex-direction: column; box-shadow: 0 2px 4px rgba(0,0,0,0.3); text-align: center;}
@@ -44,6 +199,10 @@
     <aside class="sidebar" id="adminPanel">
         <h2>Admin Panel</h2>
         <ul id="passwordList"></ul>
+        <input type="text" id="addPassword" placeholder="New Password">
+        <button onclick="addPassword()">Add Password</button>
+        <input type="text" id="deletePassword" placeholder="Password to Deactivate">
+        <button onclick="deactivatePassword()">Deactivate Password</button>
         <select id="videoSelect"></select>
         <input type="text" id="videoTitleInput" placeholder="Edit selected video title">
         <button onclick="updateVideoTitle()">Update Title</button>
@@ -52,102 +211,5 @@
         <div class="video-grid" id="videoList"></div>
     </section>
 </main>
-<script>
-    // Firebase Config (replace values from Firebase project settings)
-    const firebaseConfig = {
-        apiKey: "AIzaSyA2wn2eE1cYlWXNNEVHJYga_3CbJm-JfnM",
-        authDomain: "passwordprotected.firebaseapp.com",
-        projectId: "passwordprotected",
-        storageBucket: "passwordprotected.firebasestorage.app",
-        messagingSenderId: "261596781861",
-        appId: "1:261596781861:web:4af0a2ea4e0b07e54b8ecc"
-    };
-
-    const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-
-    const ADMIN_PASSWORD = "admin@0385";
-    const videos = [
-        { id: "1jbytLPLR7vujtFcICnZjtzgoY-SjbwKl", title: "Kesari Chapter 2" },
-        { id: "1BLms4P3ZU3cDWgHo95flbrk8R2F8QeHf", title: "Stolen" },
-        { id: "1AbcDEfGhijkLmNoPQRstuVWXyZ1234567", title: "New Movie" }
-    ];
-
-    async function checkPassword(){
-        const input = document.getElementById('password').value.trim();
-        const docRef = db.collection("passwords").doc(input);
-        const docSnap = await docRef.get();
-        if(docSnap.exists){
-            const data = docSnap.data();
-            if(data.used){
-                alert("Password already used on another device!");
-                return;
-            }
-            await docRef.update({used:true});
-            loadVideos();
-        } else {
-            alert("Invalid password!");
-        }
-    }
-
-    function logout(){
-        document.getElementById('videoList').innerHTML = "";
-        document.getElementById('adminPanel').style.display = "none";
-    }
-
-    function adminLogin(){
-        const pass = prompt("Enter Admin Password:");
-        if(pass === ADMIN_PASSWORD){
-            document.getElementById('adminPanel').style.display = "block";
-            loadPasswordList();
-            populateVideoSelect();
-        } else {alert("Incorrect admin password!");}
-    }
-
-    function loadVideos(){
-        const container = document.getElementById('videoList');
-        container.innerHTML = "";
-        videos.forEach((video) => {
-            const block = document.createElement('div');
-            block.className = 'video-block';
-            block.innerHTML = `<div class="video-container">
-                                   <iframe src="https://drive.google.com/file/d/${video.id}/preview?rm=minimal" allowfullscreen allow="autoplay"></iframe>
-                                   <div class="iframe-overlay"></div>
-                               </div>
-                               <div class="video-title">${video.title}</div>`;
-            container.appendChild(block);
-        });
-    }
-
-    async function loadPasswordList(){
-        const snapshot = await db.collection("passwords").get();
-        const list = document.getElementById('passwordList');
-        list.innerHTML = "";
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            list.innerHTML += `<li>${doc.id} ${data.used ? '(used)' : ''}</li>`;
-        });
-    }
-
-    function populateVideoSelect(){
-        const select = document.getElementById('videoSelect');
-        select.innerHTML = "";
-        videos.forEach((video, index) => {
-            const option = document.createElement('option');
-            option.value = index; option.textContent = video.title;
-            select.appendChild(option);
-        });
-    }
-
-    function updateVideoTitle(){
-        const index = document.getElementById('videoSelect').value;
-        const newTitle = document.getElementById('videoTitleInput').value.trim();
-        if(newTitle){
-            videos[index].title = newTitle;
-            loadVideos(); populateVideoSelect();
-            document.getElementById('videoTitleInput').value = "";
-        }
-    }
-</script>
 </body>
 </html>
