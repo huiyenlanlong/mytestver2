@@ -41,10 +41,7 @@
 <main>
     <aside class="sidebar" id="adminPanel">
         <h2>Admin Panel</h2>
-        <h3>Passwords</h3>
-        <input type="text" id="newPassword" placeholder="New one-time password">
-        <input type="number" id="expiryMinutes" placeholder="Expiry (minutes)">
-        <button onclick="addPassword()">Add Password</button>
+        <h3>Fixed 10 User Passwords</h3>
         <ul id="passwordList"></ul>
         <h3>Video Titles</h3>
         <select id="videoSelect"></select>
@@ -56,8 +53,6 @@
     </section>
 </main>
 <script>
-    let validPasswords = [];
-    const usedPasswords = new Set();
     const ADMIN_PASSWORD = "admin@0385";
     const videos = [
         { id: "1jbytLPLR7vujtFcICnZjtzgoY-SjbwKl", title: "Kesari Chapter 2" },
@@ -67,20 +62,37 @@
     let isLoggedIn = false;
     let isAdmin = false;
 
+    let validPasswords = JSON.parse(localStorage.getItem('validPasswords')) || [
+        {pass:"pass001",used:false},
+        {pass:"pass002",used:false},
+        {pass:"pass003",used:false},
+        {pass:"pass004",used:false},
+        {pass:"pass005",used:false},
+        {pass:"pass006",used:false},
+        {pass:"pass007",used:false},
+        {pass:"pass008",used:false},
+        {pass:"pass009",used:false},
+        {pass:"pass010",used:false}
+    ];
+
+    function savePasswords(){
+        localStorage.setItem('validPasswords', JSON.stringify(validPasswords));
+    }
+
     function checkPassword(){
         const input = document.getElementById('password').value.trim();
-        const now = Date.now();
         const entry = validPasswords.find(p => p.pass === input);
-        if(entry && !usedPasswords.has(input)){
-            if(now < entry.expiry){
-                usedPasswords.add(input);
-                isLoggedIn = true;
-                loadVideos();
-            } else {
-                alert("Password expired!");
+        if(entry){
+            if(entry.used){
+                alert("This password is already used on another device!");
+                return;
             }
+            entry.used = true;
+            savePasswords();
+            isLoggedIn = true;
+            loadVideos();
         } else {
-            alert("Invalid or expired password!");
+            alert("Invalid password!");
         }
     }
 
@@ -114,26 +126,11 @@
         });
     }
 
-    function addPassword(){
-        const newPass = document.getElementById('newPassword').value.trim();
-        const expiryMinutes = parseInt(document.getElementById('expiryMinutes').value.trim()) || 10;
-        const expiryTime = Date.now() + expiryMinutes * 60 * 1000;
-        if(newPass && !validPasswords.find(p => p.pass === newPass)){
-            validPasswords.push({ pass: newPass, expiry: expiryTime });
-            document.getElementById('newPassword').value = "";
-            document.getElementById('expiryMinutes').value = "";
-            loadPasswordList();
-        }
-    }
-
     function loadPasswordList(){
         const list = document.getElementById('passwordList');
         list.innerHTML = "";
         validPasswords.forEach(p => {
-            const remaining = Math.max(0, Math.floor((p.expiry - Date.now())/1000));
-            const li = document.createElement('li');
-            li.innerText = `${p.pass} - expires in ${remaining} sec${usedPasswords.has(p.pass) ? " (used)" : ""}`;
-            list.appendChild(li);
+            list.innerHTML += `<li>${p.pass} ${p.used ? '(used)' : ''}</li>`;
         });
     }
 
@@ -156,6 +153,8 @@
             document.getElementById('videoTitleInput').value = "";
         }
     }
+
+    loadPasswordList();
 </script>
 </body>
 </html>
