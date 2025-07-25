@@ -7,7 +7,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { 
-            getFirestore, doc, getDoc, updateDoc, collection, getDocs, onSnapshot 
+            getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, onSnapshot 
         } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -81,7 +81,7 @@
                     }
                     await updateDoc(docRef, { used: true, deviceId: deviceId });
                     localStorage.setItem("sessionPassword", input);
-                    listenToPassword(input);   // start listening real-time
+                    listenToPassword(input);
                     alert("Login successful!");
                     loadVideos();
                 } else {
@@ -101,7 +101,7 @@
                 const docRef = doc(db, "passwords", savedPass);
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists() && docSnap.data().deviceId === deviceId) {
-                    listenToPassword(savedPass);   // resume listener on reload
+                    listenToPassword(savedPass);
                     loadVideos();
                 }
             }
@@ -136,13 +136,11 @@
                     const data = docSnap.data();
                     const status = data.used ? `(used by ${data.deviceId || 'unknown'})` : '(unused)';
 
-                    // Add to password list view
                     const li = document.createElement('li');
                     li.textContent = `${docSnap.id} ${status}`;
                     li.style.color = data.used ? "red" : "limegreen";
                     list.appendChild(li);
 
-                    // Create dropdown option with color
                     const option = document.createElement('option');
                     option.value = docSnap.id;
                     option.textContent = `${docSnap.id} ${status}`;
@@ -170,6 +168,30 @@
                 }
             }catch(error){
                 console.error("Error resetting password:", error);
+            }
+        };
+
+        // --- New: Generate 10 Random Passwords & Save to Firestore ---
+        function generatePassword(length = 8) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let pass = '';
+            for (let i = 0; i < length; i++) {
+                pass += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return pass;
+        }
+
+        window.generate10Passwords = async function(){
+            try {
+                for(let i=0; i<10; i++){
+                    const newPass = generatePassword();
+                    const docRef = doc(db, "passwords", newPass);
+                    await setDoc(docRef, { used: false, deviceId: "" });
+                }
+                alert("10 Random Passwords Generated!");
+                await loadPasswordList();
+            } catch (error) {
+                console.error("Error generating passwords:", error);
             }
         };
 
@@ -253,6 +275,8 @@
         <h3>Reset a Password</h3>
         <select id="passwordResetSelect"></select>
         <button onclick="resetSelectedPassword()">Reset Selected Password</button>
+        <h3>Generate Random Passwords</h3>
+        <button onclick="generate10Passwords()">Generate 10 Passwords</button>
         <h3>Edit Video Titles</h3>
         <select id="videoSelect"></select>
         <input type="text" id="videoTitleInput" placeholder="Edit selected video title">
