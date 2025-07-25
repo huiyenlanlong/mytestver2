@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IDONOTHINGALLDAYS</title>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"></script>
+    <!-- Using Firebase v8 for compatibility -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <style>
         body {font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: linear-gradient(120deg, #2c3e50, #3498db); color: #fff;}
         header {background: rgba(0,0,0,0.6); padding: 15px 20px; display: flex; justify-content: center; align-items: center; flex-direction: column; box-shadow: 0 2px 4px rgba(0,0,0,0.3); text-align: center;}
@@ -63,7 +64,7 @@
         appId: "1:261596781861:web:4af0a2ea4e0b07e54b8ecc"
     };
 
-    const app = firebase.initializeApp(firebaseConfig);
+    firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
     const ADMIN_PASSWORD = "admin@0385";
