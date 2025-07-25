@@ -69,9 +69,6 @@
 
     async function checkPassword(){
         const input = document.getElementById('password').value.trim();
-        const deviceId = localStorage.getItem('deviceId') || crypto.randomUUID();
-        localStorage.setItem('deviceId', deviceId);
-
         const docRef = db.collection("passwords").doc(input);
         const docSnap = await docRef.get();
         if(docSnap.exists){
@@ -80,12 +77,10 @@
                 alert("This password is deactivated!"); return;
             }
             if(!data.used){
-                await docRef.update({used:true, device:deviceId, usedAt:new Date().toISOString()});
-                loadVideos();
-            } else if(data.device === deviceId){
+                await docRef.update({used:true, usedAt:new Date().toISOString()});
                 loadVideos();
             } else {
-                alert("This password is already used on another device!");
+                alert("This password is already used!");
             }
         } else {
             alert("Invalid password!");
@@ -112,7 +107,7 @@
         const docRef = db.collection("passwords").doc(pass);
         const docSnap = await docRef.get();
         if(docSnap.exists) return alert("Password already exists!");
-        await docRef.set({used:false, deactivated:false, device:null, usedAt:null});
+        await docRef.set({used:false, deactivated:false, usedAt:null});
         alert("Password added successfully!");
         document.getElementById('addPassword').value = "";
         loadPasswordList();
@@ -151,7 +146,7 @@
         list.innerHTML = "";
         snapshot.forEach(doc => {
             const data = doc.data();
-            list.innerHTML += `<li>${doc.id} ${data.deactivated ? '(deactivated)' : data.used ? `(used on ${data.usedAt}, device: ${data.device})` : ''}</li>`;
+            list.innerHTML += `<li>${doc.id} ${data.deactivated ? '(deactivated)' : data.used ? `(used on ${data.usedAt})` : ''}</li>`;
         });
     }
 
