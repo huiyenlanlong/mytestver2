@@ -57,39 +57,36 @@
     </section>
 </main>
 <script>
-    const firebaseConfig = {
-        apiKey: "AIzaSyA2wn2eE1cYlWXNNEVHJYga_3CbJm-JfnM",
-        authDomain: "passwordprotected.firebaseapp.com",
-        projectId: "passwordprotected",
-        storageBucket: "passwordprotected.appspot.com",
-        messagingSenderId: "261596781861",
-        appId: "1:261596781861:web:4af0a2ea4e0b07e54b8ecc"
-    };
-
+    const firebaseConfig = { /* your firebase config */ };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
     const ADMIN_PASSWORD = "admin@0385";
     const videos = [
         { id: "1jbytLPLR7vujtFcICnZjtzgoY-SjbwKl", title: "Kesari Chapter 2" },
-        { id: "1BLms4P3ZU3cDWgHo95flbrk8R2F8QeHf", title: "Stolen" },
-        { id: "1AbcDEfGhijkLmNoPQRstuVWXyZ1234567", title: "New Movie" }
+        { id: "1BLms4P3ZU3cDWgHo95flbrk8R2F8QeHf", title: "Stolen" }
     ];
 
     async function checkPassword(){
         const input = document.getElementById('password').value.trim();
+        const deviceId = localStorage.getItem('deviceId') || crypto.randomUUID();
+        localStorage.setItem('deviceId', deviceId);
+
         const docRef = db.collection("passwords").doc(input);
         const docSnap = await docRef.get();
         if(docSnap.exists){
             const data = docSnap.data();
-            if(data.used || data.deactivated){
-                alert("This password is no longer valid!");
-                return;
+            if(data.deactivated){
+                alert("This password is deactivated!"); return;
             }
-            const timestamp = new Date().toISOString();
-            const userAgent = navigator.userAgent;
-            await docRef.update({used:true, usedAt:timestamp, device:userAgent});
-            loadVideos();
+            if(!data.used){
+                await docRef.update({used:true, device:deviceId, usedAt:new Date().toISOString()});
+                loadVideos();
+            } else if(data.device === deviceId){
+                loadVideos();
+            } else {
+                alert("This password is already used on another device!");
+            }
         } else {
             alert("Invalid password!");
         }
@@ -106,16 +103,16 @@
             document.getElementById('adminPanel').style.display = "block";
             loadPasswordList();
             populateVideoSelect();
-        } else {alert("Incorrect admin password!");}
+        } else alert("Incorrect admin password!");
     }
 
     async function addPassword(){
         const pass = document.getElementById('addPassword').value.trim();
-        if(!pass){alert("Enter password to add!");return;}
+        if(!pass) return alert("Enter password to add!");
         const docRef = db.collection("passwords").doc(pass);
         const docSnap = await docRef.get();
-        if(docSnap.exists){alert("Password already exists!");return;}
-        await docRef.set({used:false, deactivated:false, usedAt:null, device:null});
+        if(docSnap.exists) return alert("Password already exists!");
+        await docRef.set({used:false, deactivated:false, device:null, usedAt:null});
         alert("Password added successfully!");
         document.getElementById('addPassword').value = "";
         loadPasswordList();
@@ -123,12 +120,12 @@
 
     async function deactivatePassword(){
         const pass = document.getElementById('deletePassword').value.trim();
-        if(!pass){alert("Enter password to deactivate!");return;}
+        if(!pass) return alert("Enter password to deactivate!");
         const docRef = db.collection("passwords").doc(pass);
         const docSnap = await docRef.get();
-        if(!docSnap.exists){alert("Password not found!");return;}
+        if(!docSnap.exists) return alert("Password not found!");
         await docRef.update({deactivated:true});
-        alert("Password has been deactivated and cannot be used again.");
+        alert("Password deactivated!");
         document.getElementById('deletePassword').value = "";
         loadPasswordList();
     }
@@ -136,7 +133,7 @@
     function loadVideos(){
         const container = document.getElementById('videoList');
         container.innerHTML = "";
-        videos.forEach((video) => {
+        videos.forEach(video => {
             const block = document.createElement('div');
             block.className = 'video-block';
             block.innerHTML = `<div class="video-container">
@@ -154,7 +151,7 @@
         list.innerHTML = "";
         snapshot.forEach(doc => {
             const data = doc.data();
-            list.innerHTML += `<li>${doc.id} ${data.deactivated ? '(deactivated)' : (data.used ? `(used on ${data.usedAt || ''} | device: ${data.device || ''})` : '')}</li>`;
+            list.innerHTML += `<li>${doc.id} ${data.deactivated ? '(deactivated)' : data.used ? `(used on ${data.usedAt}, device: ${data.device})` : ''}</li>`;
         });
     }
 
@@ -173,7 +170,8 @@
         const newTitle = document.getElementById('videoTitleInput').value.trim();
         if(newTitle){
             videos[index].title = newTitle;
-            loadVideos(); populateVideoSelect();
+            loadVideos();
+            populateVideoSelect();
             document.getElementById('videoTitleInput').value = "";
         }
     }
