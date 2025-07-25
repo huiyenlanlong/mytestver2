@@ -21,24 +21,31 @@
             appId: "1:261596781861:web:4af0a2ea4e0b07e54b8ecc"
         };
 
-        // ---- Initialize Firebase ----
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // ---- Admin Password (Frontend only for demo) ----
         const ADMIN_PASSWORD = "admin@0385";
-
-        // ---- Video List ----
         const videos = [
             { id: "1jbytLPLR7vujtFcICnZjtzgoY-SjbwKl", title: "Kesari Chapter 2" },
             { id: "1BLms4P3ZU3cDWgHo95flbrk8R2F8QeHf", title: "Stolen" },
             { id: "1AbcDEfGhijkLmNoPQRstuVWXyZ1234567", title: "New Movie" }
         ];
 
-        // ---- Check User Password (One-Time Use) ----
+        // ---- Device ID ----
+        function getDeviceId(){
+            let id = localStorage.getItem("deviceId");
+            if(!id){
+                id = crypto.randomUUID();
+                localStorage.setItem("deviceId", id);
+            }
+            return id;
+        }
+
+        // ---- Check Password ----
         window.checkPassword = async function(){
             const input = document.getElementById('password').value.trim();
             if (!input) return alert("Enter password!");
+            const deviceId = getDeviceId();
 
             try {
                 const docRef = doc(db, "passwords", input);
@@ -46,12 +53,16 @@
 
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    if (data.used) {
+
+                    // If already used by another device
+                    if (data.used && data.deviceId !== deviceId) {
                         alert("Password already used on another device!");
                         return;
                     }
-                    // Mark password as used immediately
-                    await updateDoc(docRef, { used: true });
+
+                    // Mark password as used for this device
+                    await updateDoc(docRef, { used: true, deviceId: deviceId });
+                    localStorage.setItem("sessionPassword", input);
                     alert("Login successful!");
                     loadVideos();
                 } else {
@@ -62,6 +73,20 @@
                 alert("Something went wrong! Check console.");
             }
         };
+
+        // ---- Auto-login if session exists ----
+        window.addEventListener("DOMContentLoaded", async () => {
+            const savedPass = localStorage.getItem("sessionPassword");
+            const deviceId = getDeviceId();
+
+            if(savedPass){
+                const docRef = doc(db, "passwords", savedPass);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists() && docSnap.data().deviceId === deviceId) {
+                    loadVideos();
+                }
+            }
+        });
 
         // ---- Logout ----
         window.logout = function(){
@@ -89,12 +114,31 @@
                 const querySnapshot = await getDocs(collection(db, "passwords"));
                 querySnapshot.forEach((docSnap) => {
                     const data = docSnap.data();
-                    list.innerHTML += `<li>${docSnap.id} ${data.used ? '(used)' : ''}</li>`;
+                    list.innerHTML += `<li>${docSnap.id} ${data.used ? `(used by ${data.deviceId || 'unknown'})` : '(unused)'}</li>`;
                 });
             } catch (error) {
                 console.error("Error loading passwords:", error);
             }
         }
+
+        // ---- Reset Password (Admin) ----
+        window.resetPassword = async function(){
+            const pass = prompt("Enter password to reset:");
+            if(!pass) return;
+            try{
+                const docRef = doc(db, "passwords", pass);
+                const docSnap = await getDoc(docRef);
+                if(docSnap.exists()){
+                    await updateDoc(docRef, { used: false, deviceId: "" });
+                    alert("Password reset successfully!");
+                    await loadPasswordList();
+                } else {
+                    alert("Password not found!");
+                }
+            }catch(error){
+                console.error("Error resetting password:", error);
+            }
+        };
 
         // ---- Update Video Title ----
         window.updateVideoTitle = function(){
@@ -108,7 +152,6 @@
             }
         };
 
-        // ---- Populate Video Dropdown ----
         function populateVideoSelect(){
             const select = document.getElementById('videoSelect');
             select.innerHTML = "";
@@ -120,7 +163,6 @@
             });
         }
 
-        // ---- Load Videos ----
         function loadVideos(){
             const container = document.getElementById('videoList');
             container.innerHTML = "";
@@ -170,6 +212,7 @@
         <button onclick="checkPassword()">Login</button>
         <button onclick="logout()">Logout</button>
         <button onclick="adminLogin()">Admin Login</button>
+        <button onclick="resetPassword()">Reset Password</button>
     </div>
 </header>
 <main>
