@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IDONOTHINGALLDAYS</title>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"></script>
     <style>
         body {font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: linear-gradient(120deg, #2c3e50, #3498db); color: #fff;}
         header {background: rgba(0,0,0,0.6); padding: 15px 20px; display: flex; justify-content: center; align-items: center; flex-direction: column; box-shadow: 0 2px 4px rgba(0,0,0,0.3); text-align: center;}
@@ -44,10 +44,6 @@
     <aside class="sidebar" id="adminPanel">
         <h2>Admin Panel</h2>
         <ul id="passwordList"></ul>
-        <input type="text" id="addPassword" placeholder="New Password">
-        <button onclick="addPassword()">Add Password</button>
-        <input type="text" id="deletePassword" placeholder="Password to Deactivate">
-        <button onclick="deactivatePassword()">Deactivate Password</button>
         <select id="videoSelect"></select>
         <input type="text" id="videoTitleInput" placeholder="Edit selected video title">
         <button onclick="updateVideoTitle()">Update Title</button>
@@ -57,14 +53,24 @@
     </section>
 </main>
 <script>
-    const firebaseConfig = { /* your firebase config */ };
-    firebase.initializeApp(firebaseConfig);
+    // Firebase Config (replace values from Firebase project settings)
+    const firebaseConfig = {
+        apiKey: "AIzaSyA2wn2eE1cYlWXNNEVHJYga_3CbJm-JfnM",
+        authDomain: "passwordprotected.firebaseapp.com",
+        projectId: "passwordprotected",
+        storageBucket: "passwordprotected.firebasestorage.app",
+        messagingSenderId: "261596781861",
+        appId: "1:261596781861:web:4af0a2ea4e0b07e54b8ecc"
+    };
+
+    const app = firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
     const ADMIN_PASSWORD = "admin@0385";
     const videos = [
         { id: "1jbytLPLR7vujtFcICnZjtzgoY-SjbwKl", title: "Kesari Chapter 2" },
-        { id: "1BLms4P3ZU3cDWgHo95flbrk8R2F8QeHf", title: "Stolen" }
+        { id: "1BLms4P3ZU3cDWgHo95flbrk8R2F8QeHf", title: "Stolen" },
+        { id: "1AbcDEfGhijkLmNoPQRstuVWXyZ1234567", title: "New Movie" }
     ];
 
     async function checkPassword(){
@@ -73,15 +79,12 @@
         const docSnap = await docRef.get();
         if(docSnap.exists){
             const data = docSnap.data();
-            if(data.deactivated){
-                alert("This password is deactivated!"); return;
+            if(data.used){
+                alert("Password already used on another device!");
+                return;
             }
-            if(!data.used){
-                await docRef.update({used:true, usedAt:new Date().toISOString()});
-                loadVideos();
-            } else {
-                alert("This password is already used!");
-            }
+            await docRef.update({used:true});
+            loadVideos();
         } else {
             alert("Invalid password!");
         }
@@ -98,37 +101,13 @@
             document.getElementById('adminPanel').style.display = "block";
             loadPasswordList();
             populateVideoSelect();
-        } else alert("Incorrect admin password!");
-    }
-
-    async function addPassword(){
-        const pass = document.getElementById('addPassword').value.trim();
-        if(!pass) return alert("Enter password to add!");
-        const docRef = db.collection("passwords").doc(pass);
-        const docSnap = await docRef.get();
-        if(docSnap.exists) return alert("Password already exists!");
-        await docRef.set({used:false, deactivated:false, usedAt:null});
-        alert("Password added successfully!");
-        document.getElementById('addPassword').value = "";
-        loadPasswordList();
-    }
-
-    async function deactivatePassword(){
-        const pass = document.getElementById('deletePassword').value.trim();
-        if(!pass) return alert("Enter password to deactivate!");
-        const docRef = db.collection("passwords").doc(pass);
-        const docSnap = await docRef.get();
-        if(!docSnap.exists) return alert("Password not found!");
-        await docRef.update({deactivated:true});
-        alert("Password deactivated!");
-        document.getElementById('deletePassword').value = "";
-        loadPasswordList();
+        } else {alert("Incorrect admin password!");}
     }
 
     function loadVideos(){
         const container = document.getElementById('videoList');
         container.innerHTML = "";
-        videos.forEach(video => {
+        videos.forEach((video) => {
             const block = document.createElement('div');
             block.className = 'video-block';
             block.innerHTML = `<div class="video-container">
@@ -146,7 +125,7 @@
         list.innerHTML = "";
         snapshot.forEach(doc => {
             const data = doc.data();
-            list.innerHTML += `<li>${doc.id} ${data.deactivated ? '(deactivated)' : data.used ? `(used on ${data.usedAt})` : ''}</li>`;
+            list.innerHTML += `<li>${doc.id} ${data.used ? '(used)' : ''}</li>`;
         });
     }
 
@@ -165,8 +144,7 @@
         const newTitle = document.getElementById('videoTitleInput').value.trim();
         if(newTitle){
             videos[index].title = newTitle;
-            loadVideos();
-            populateVideoSelect();
+            loadVideos(); populateVideoSelect();
             document.getElementById('videoTitleInput').value = "";
         }
     }
