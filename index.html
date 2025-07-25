@@ -6,7 +6,9 @@
     <title>IDONOTHINGALLDAYS</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, getDoc, updateDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { 
+            getFirestore, doc, getDoc, updateDoc, collection, getDocs, onSnapshot 
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyA2wn2eE1cYlWXNNEVHJYga_3CbJm-JfnM",
@@ -27,6 +29,8 @@
             { id: "1AbcDEfGhijkLmNoPQRstuVWXyZ1234567", title: "New Movie" }
         ];
 
+        let unsubscribePasswordListener = null;
+
         function getDeviceId(){
             let id = localStorage.getItem("deviceId");
             if(!id){
@@ -34,6 +38,30 @@
                 localStorage.setItem("deviceId", id);
             }
             return id;
+        }
+
+        async function listenToPassword(password){
+            const docRef = doc(db, "passwords", password);
+            unsubscribePasswordListener = onSnapshot(docRef, (docSnap) => {
+                if (!docSnap.exists()) {
+                    alert("Password deleted by admin. Logging out...");
+                    forceLogout();
+                    return;
+                }
+                const data = docSnap.data();
+                const deviceId = getDeviceId();
+                if (!data.used || data.deviceId !== deviceId) {
+                    alert("Password reset or used on another device. Logging out...");
+                    forceLogout();
+                }
+            });
+        }
+
+        function forceLogout(){
+            if (unsubscribePasswordListener) unsubscribePasswordListener();
+            unsubscribePasswordListener = null;
+            localStorage.removeItem("sessionPassword");
+            logout();
         }
 
         window.checkPassword = async function(){
@@ -53,6 +81,7 @@
                     }
                     await updateDoc(docRef, { used: true, deviceId: deviceId });
                     localStorage.setItem("sessionPassword", input);
+                    listenToPassword(input);   // start listening real-time
                     alert("Login successful!");
                     loadVideos();
                 } else {
@@ -72,6 +101,7 @@
                 const docRef = doc(db, "passwords", savedPass);
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists() && docSnap.data().deviceId === deviceId) {
+                    listenToPassword(savedPass);   // resume listener on reload
                     loadVideos();
                 }
             }
@@ -80,6 +110,7 @@
         window.logout = function(){
             document.getElementById('videoList').innerHTML = "";
             document.getElementById('adminPanel').style.display = "none";
+            if (unsubscribePasswordListener) unsubscribePasswordListener();
         };
 
         window.adminLogin = async function(){
@@ -104,12 +135,18 @@
                 querySnapshot.forEach((docSnap) => {
                     const data = docSnap.data();
                     const status = data.used ? `(used by ${data.deviceId || 'unknown'})` : '(unused)';
-                    list.innerHTML += `<li>${docSnap.id} ${status}</li>`;
 
-                    // Populate dropdown
+                    // Add to password list view
+                    const li = document.createElement('li');
+                    li.textContent = `${docSnap.id} ${status}`;
+                    li.style.color = data.used ? "red" : "limegreen";
+                    list.appendChild(li);
+
+                    // Create dropdown option with color
                     const option = document.createElement('option');
                     option.value = docSnap.id;
                     option.textContent = `${docSnap.id} ${status}`;
+                    option.style.color = data.used ? "red" : "limegreen";
                     resetSelect.appendChild(option);
                 });
             } catch (error) {
@@ -213,11 +250,9 @@
     <aside class="sidebar" id="adminPanel">
         <h2>Admin Panel</h2>
         <ul id="passwordList"></ul>
-
         <h3>Reset a Password</h3>
         <select id="passwordResetSelect"></select>
         <button onclick="resetSelectedPassword()">Reset Selected Password</button>
-
         <h3>Edit Video Titles</h3>
         <select id="videoSelect"></select>
         <input type="text" id="videoTitleInput" placeholder="Edit selected video title">
