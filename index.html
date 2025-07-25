@@ -8,7 +8,7 @@
         // ---- Firebase v10 Modular Imports ----
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { 
-            getFirestore, doc, getDoc, updateDoc, collection, getDocs 
+            getFirestore, doc, getDoc, collection, getDocs 
         } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // ---- Firebase Config (Replace with yours) ----
@@ -16,7 +16,7 @@
             apiKey: "AIzaSyA2wn2eE1cYlWXNNEVHJYga_3CbJm-JfnM",
             authDomain: "passwordprotected.firebaseapp.com",
             projectId: "passwordprotected",
-            storageBucket: "passwordprotected.appspot.com",  // Fixed name
+            storageBucket: "passwordprotected.appspot.com",
             messagingSenderId: "261596781861",
             appId: "1:261596781861:web:4af0a2ea4e0b07e54b8ecc"
         };
@@ -46,11 +46,16 @@
 
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    if (data.used) {
+                    const savedPass = localStorage.getItem("sessionPassword");
+
+                    // Already used by another device?
+                    if (data.used && savedPass !== input) {
                         alert("Password already used on another device!");
                         return;
                     }
-                    await updateDoc(docRef, { used: true });
+
+                    // Save session locally
+                    localStorage.setItem("sessionPassword", input);
                     alert("Login successful!");
                     loadVideos();
                 } else {
@@ -62,8 +67,17 @@
             }
         };
 
+        // ---- Auto-login if session exists ----
+        window.addEventListener("DOMContentLoaded", () => {
+            const savedPass = localStorage.getItem("sessionPassword");
+            if (savedPass) {
+                loadVideos();
+            }
+        });
+
         // ---- Logout ----
         window.logout = function(){
+            localStorage.removeItem("sessionPassword");
             document.getElementById('videoList').innerHTML = "";
             document.getElementById('adminPanel').style.display = "none";
         };
