@@ -8,7 +8,7 @@
         // ---- Firebase v10 Modular Imports ----
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { 
-            getFirestore, doc, getDoc, collection, getDocs 
+            getFirestore, doc, getDoc, updateDoc, collection, getDocs 
         } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // ---- Firebase Config (Replace with yours) ----
@@ -35,7 +35,7 @@
             { id: "1AbcDEfGhijkLmNoPQRstuVWXyZ1234567", title: "New Movie" }
         ];
 
-        // ---- Check User Password ----
+        // ---- Check User Password (One-Time Use) ----
         window.checkPassword = async function(){
             const input = document.getElementById('password').value.trim();
             if (!input) return alert("Enter password!");
@@ -46,16 +46,12 @@
 
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    const savedPass = localStorage.getItem("sessionPassword");
-
-                    // Already used by another device?
-                    if (data.used && savedPass !== input) {
+                    if (data.used) {
                         alert("Password already used on another device!");
                         return;
                     }
-
-                    // Save session locally
-                    localStorage.setItem("sessionPassword", input);
+                    // Mark password as used immediately
+                    await updateDoc(docRef, { used: true });
                     alert("Login successful!");
                     loadVideos();
                 } else {
@@ -67,17 +63,8 @@
             }
         };
 
-        // ---- Auto-login if session exists ----
-        window.addEventListener("DOMContentLoaded", () => {
-            const savedPass = localStorage.getItem("sessionPassword");
-            if (savedPass) {
-                loadVideos();
-            }
-        });
-
         // ---- Logout ----
         window.logout = function(){
-            localStorage.removeItem("sessionPassword");
             document.getElementById('videoList').innerHTML = "";
             document.getElementById('adminPanel').style.display = "none";
         };
