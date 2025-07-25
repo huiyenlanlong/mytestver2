@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IDONOTHINGALLDAYS</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"></script>
     <style>
         body {font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: linear-gradient(120deg, #2c3e50, #3498db); color: #fff;}
         header {background: rgba(0,0,0,0.6); padding: 15px 20px; display: flex; justify-content: center; align-items: center; flex-direction: column; box-shadow: 0 2px 4px rgba(0,0,0,0.3); text-align: center;}
@@ -41,9 +43,7 @@
 <main>
     <aside class="sidebar" id="adminPanel">
         <h2>Admin Panel</h2>
-        <h3>Fixed 10 User Passwords</h3>
         <ul id="passwordList"></ul>
-        <h3>Video Titles</h3>
         <select id="videoSelect"></select>
         <input type="text" id="videoTitleInput" placeholder="Edit selected video title">
         <button onclick="updateVideoTitle()">Update Title</button>
@@ -53,43 +53,37 @@
     </section>
 </main>
 <script>
+    // Firebase Config (replace values from Firebase project settings)
+    const firebaseConfig = {
+        apiKey: "AIzaSyA2wn2eE1cYlWXNNEVHJYga_3CbJm-JfnM",
+        authDomain: "passwordprotected.firebaseapp.com",
+        projectId: "passwordprotected",
+        storageBucket: "passwordprotected.firebasestorage.app",
+        messagingSenderId: "261596781861",
+        appId: "1:261596781861:web:4af0a2ea4e0b07e54b8ecc"
+    };
+
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
     const ADMIN_PASSWORD = "admin@0385";
     const videos = [
         { id: "1jbytLPLR7vujtFcICnZjtzgoY-SjbwKl", title: "Kesari Chapter 2" },
         { id: "1BLms4P3ZU3cDWgHo95flbrk8R2F8QeHf", title: "Stolen" },
         { id: "1AbcDEfGhijkLmNoPQRstuVWXyZ1234567", title: "New Movie" }
     ];
-    let isLoggedIn = false;
-    let isAdmin = false;
 
-    let validPasswords = JSON.parse(localStorage.getItem('validPasswords')) || [
-        {pass:"pass001",used:false},
-        {pass:"pass002",used:false},
-        {pass:"pass003",used:false},
-        {pass:"pass004",used:false},
-        {pass:"pass005",used:false},
-        {pass:"pass006",used:false},
-        {pass:"pass007",used:false},
-        {pass:"pass008",used:false},
-        {pass:"pass009",used:false},
-        {pass:"pass010",used:false}
-    ];
-
-    function savePasswords(){
-        localStorage.setItem('validPasswords', JSON.stringify(validPasswords));
-    }
-
-    function checkPassword(){
+    async function checkPassword(){
         const input = document.getElementById('password').value.trim();
-        const entry = validPasswords.find(p => p.pass === input);
-        if(entry){
-            if(entry.used){
-                alert("This password is already used on another device!");
+        const docRef = db.collection("passwords").doc(input);
+        const docSnap = await docRef.get();
+        if(docSnap.exists){
+            const data = docSnap.data();
+            if(data.used){
+                alert("Password already used on another device!");
                 return;
             }
-            entry.used = true;
-            savePasswords();
-            isLoggedIn = true;
+            await docRef.update({used:true});
             loadVideos();
         } else {
             alert("Invalid password!");
@@ -97,7 +91,6 @@
     }
 
     function logout(){
-        isLoggedIn = false; isAdmin = false;
         document.getElementById('videoList').innerHTML = "";
         document.getElementById('adminPanel').style.display = "none";
     }
@@ -105,9 +98,9 @@
     function adminLogin(){
         const pass = prompt("Enter Admin Password:");
         if(pass === ADMIN_PASSWORD){
-            isAdmin = true;
             document.getElementById('adminPanel').style.display = "block";
-            loadPasswordList(); populateVideoSelect();
+            loadPasswordList();
+            populateVideoSelect();
         } else {alert("Incorrect admin password!");}
     }
 
@@ -126,11 +119,13 @@
         });
     }
 
-    function loadPasswordList(){
+    async function loadPasswordList(){
+        const snapshot = await db.collection("passwords").get();
         const list = document.getElementById('passwordList');
         list.innerHTML = "";
-        validPasswords.forEach(p => {
-            list.innerHTML += `<li>${p.pass} ${p.used ? '(used)' : ''}</li>`;
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            list.innerHTML += `<li>${doc.id} ${data.used ? '(used)' : ''}</li>`;
         });
     }
 
@@ -153,8 +148,6 @@
             document.getElementById('videoTitleInput').value = "";
         }
     }
-
-    loadPasswordList();
 </script>
 </body>
 </html>
